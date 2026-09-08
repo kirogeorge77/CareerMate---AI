@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+```
+<title>CareerMate AI</title>
+
+<link rel="stylesheet" href="style.css">
+```
+
+</head>
+
+<body>
+
+```
+<!-- =========================
+     HERO SECTION
+========================== -->
+
+<section class="hero">
+
+    <div class="hero-content">
+
+        <h1>CareerMate AI</h1>
+
+        <p>
+            Discover the career path that matches your skills,
+            interests, favorite subjects, work style, and experience.
+        </p>
+
+        <button id="startBtn">
+            Start Career Assessment
+        </button>
+
+    </div>
+
+</section>
+
+
+<!-- =========================
+     CAREER ASSESSMENT
+========================== -->
+
+<section id="assessment">
+
+    <h2>Career Assessment</h2>
+
+    <p>
+        Fill in your information to get your personalized career recommendation.
+    </p>
+
+
+    <!-- Name -->
+
+    <label for="name">
+        Name
+    </label>
+
+    <input
+        type="text"
+        id="name"
+        placeholder="Enter your name"
+    >
+
+
+    <!-- University -->
+
+    <label for="university">
+        University
+    </label>
+
+    <input
+        type="text"
+        id="university"
+        placeholder="Enter your university"
+    >
+
+
+    <!-- Major -->
+
+    <label for="major">
+        Major
+    </label>
+
+    <input
+        type="text"
+        id="major"
+        placeholder="Enter your major"
+    >
+
+
+    <!-- Year -->
+
+    <label for="year">
+    University Year
+</label>
+
+<select id="year">
+
+    <option value="1">1</option>
+    <option value="2">2</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+
+</select>
+
+
+    <!-- Skills -->
+
+    <label for="skills">
+        Skills
+    </label>
+
+    <input
+        type="text"
+        id="skills"
+        placeholder="Example: Python, HTML, CSS"
+    >
+
+
+    <!-- Interests -->
+
+    <label for="interests">
+        Interests
+    </label>
+
+    <input
+        type="text"
+        id="interests"
+        placeholder="Example: Programming, AI, Data Analysis"
+    >
+
+
+    <!-- Favorite Subjects -->
+
+    <label for="subjects">
+        Favorite Subjects
+    </label>
+
+    <input
+        type="text"
+        id="subjects"
+        placeholder="Example: Mathematics, Programming"
+    >
+
+
+    <!-- Work Style -->
+
+    <label for="workStyle">
+        Work Style
+    </label>
+
+    <select id="workStyle">
+
+        <option value="Creative">
+            Creative
+        </option>
+
+        <option value="Analytical">
+            Analytical
+        </option>
+
+        <option value="Teamwork">
+            Teamwork
+        </option>
+
+        <option value="Independent">
+            Independent
+        </option>
+
+    </select>
+
+
+    <!-- Experience Level -->
+
+    <label for="experienceLevel">
+        Experience Level
+    </label>
+
+    <select id="experienceLevel">
+
+        <option value="Beginner">
+            Beginner
+        </option>
+
+        <option value="Intermediate">
+            Intermediate
+        </option>
+
+        <option value="Advanced">
+            Advanced
+        </option>
+
+    </select>
+
+
+    <!-- Submit -->
+
+    <button id="submitBtn">
+        Get Career Recommendation
+    </button>
+
+
+    <!-- Message -->
+
+    <div id="message"></div>
+
+
+    <!-- =========================
+         RECOMMENDATION RESULT
+    ========================== -->
+
+    <div id="result"></div>
+
+</section>
+
+
+<!-- =========================
+     CAREER ASSISTANT
+========================== -->
+
+<section id="assistant">
+
+    <h2>
+        🤖 Career Assistant
+    </h2>
+
+
+    <input
+        type="text"
+        id="assistantQuestion"
+        placeholder="Ask me about your recommended career..."
+    >
+
+
+    <button id="askBtn">
+        Ask Career Assistant
+    </button>
+
+
+    <div id="assistantAnswer"></div>
+
+</section>
+
+
+<!-- =========================
+     JAVASCRIPT
+========================== -->
+
+<script src="script.js"></script>
+```
+
+</body>
+</html>

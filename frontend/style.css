@@ -1,0 +1,618 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    min-height: 100vh;
+    color: #ffffff;
+    background:
+        radial-gradient(circle at top left, #243b80 0%, transparent 35%),
+        radial-gradient(circle at bottom right, #4c1d95 0%, transparent 35%),
+        linear-gradient(135deg, #070b1f, #111936 50%, #080b18);
+}
+
+/* =========================
+   HERO
+========================= */
+
+.hero {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+
+    position: relative;
+    overflow: hidden;
+}
+
+.hero::before {
+    content: "";
+    position: absolute;
+
+    width: 350px;
+    height: 350px;
+
+    background: #3b82f6;
+    opacity: 0.12;
+
+    border-radius: 50%;
+
+    filter: blur(100px);
+
+    top: 10%;
+    left: 10%;
+}
+
+.hero::after {
+    content: "";
+    position: absolute;
+
+    width: 350px;
+    height: 350px;
+
+    background: #7c3aed;
+    opacity: 0.12;
+
+    border-radius: 50%;
+
+    filter: blur(100px);
+
+    bottom: 10%;
+    right: 10%;
+}
+
+.hero-content {
+    width: 100%;
+    max-width: 850px;
+
+    margin: 0 auto;
+
+    text-align: center;
+
+    position: relative;
+    z-index: 1;
+
+    padding: 60px 40px;
+
+    border-radius: 30px;
+
+    background: rgba(255, 255, 255, 0.05);
+
+    border: 1px solid rgba(255, 255, 255, 0.1);
+
+    backdrop-filter: blur(15px);
+
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.3);
+}
+
+.hero h1 {
+    font-size: 72px;
+    font-weight: 800;
+
+    letter-spacing: -3px;
+
+    margin-bottom: 20px;
+
+    background: linear-gradient(
+        90deg,
+        #60a5fa,
+        #a78bfa,
+        #c084fc
+    );
+
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.hero p {
+    max-width: 650px;
+
+    margin: 0 auto 35px;
+
+    font-size: 20px;
+
+    line-height: 1.7;
+
+    color: #b8c1d9;
+}
+/* =========================
+   BUTTON
+========================= */
+
+button {
+    border: none;
+    border-radius: 12px;
+    padding: 15px 32px;
+
+    background: linear-gradient(135deg, #3b82f6, #7c3aed);
+    color: white;
+
+    font-size: 17px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    box-shadow: 0 10px 30px rgba(59, 130, 246, 0.25);
+
+    transition: 0.25s ease;
+}
+
+button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 15px 35px rgba(124, 58, 237, 0.35);
+}
+
+/* =========================
+   ASSESSMENT
+========================= */
+
+#assessment {
+    width: 92%;
+    max-width: 760px;
+
+    margin: 80px auto;
+    padding: 45px;
+
+    border-radius: 24px;
+
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+
+    backdrop-filter: blur(18px);
+
+    box-shadow: 0 25px 70px rgba(0, 0, 0, 0.35);
+
+    text-align: left;
+}
+
+#assessment h2 {
+    text-align: center;
+
+    font-size: 38px;
+    margin-bottom: 10px;
+
+    background: linear-gradient(90deg, #60a5fa, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+#assessment > p {
+    text-align: center;
+    color: #aeb8d0;
+    margin-bottom: 35px;
+}
+
+/* =========================
+   LABELS
+========================= */
+
+#assessment label {
+    display: block;
+
+    margin-top: 28px;
+    margin-bottom: 8px;
+
+    color: #e5e7eb;
+
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* =========================
+   INPUTS
+========================= */
+
+#assessment input,
+#assessment select {
+    width: 100%;
+
+    padding: 14px 16px;
+
+    border-radius: 11px;
+
+    border: 1px solid rgba(255, 255, 255, 0.15);
+
+    background: rgba(255, 255, 255, 0.06);
+
+    color: white;
+
+    font-size: 15px;
+
+    outline: none;
+
+    transition: 0.2s ease;
+
+    margin-bottom: 8px;
+}
+
+#assessment input::placeholder {
+    color: #7f8aa5;
+}
+
+#assessment input:focus,
+#assessment select:focus {
+    border-color: #60a5fa;
+
+    background: rgba(255, 255, 255, 0.09);
+
+    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.12);
+}
+
+#assessment select option {
+    background: #111936;
+    color: white;
+}
+
+/* =========================
+   SUBMIT
+========================= */
+
+#submitBtn {
+    width: 100%;
+
+    margin-top: 32px;
+
+    padding: 16px;
+
+    font-size: 17px;
+}
+
+/* =========================
+   MESSAGE
+========================= */
+
+#message {
+    text-align: center;
+    margin-top: 20px;
+    padding: 12px 16px;
+
+    color: #fbbf24;
+    background: rgba(251, 191, 36, 0.08);
+
+    border: 1px solid rgba(251, 191, 36, 0.2);
+    border-radius: 10px;
+
+    font-weight: 600;
+}
+
+/* =========================
+   MOBILE
+========================= */
+
+@media (max-width: 600px) {
+
+    .hero h1 {
+        font-size: 48px;
+    }
+
+    .hero p {
+        font-size: 17px;
+    }
+
+    #assessment {
+        padding: 28px 22px;
+    }
+
+    #assessment h2 {
+        font-size: 30px;
+    }
+}
+/* =========================
+   CAREER ASSISTANT
+========================= */
+
+#assistant {
+    width: 92%;
+    max-width: 760px;
+    margin: 40px auto 80px;
+    padding: 45px;
+
+    border-radius: 24px;
+
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+
+    backdrop-filter: blur(18px);
+
+    box-shadow: 0 25px 70px rgba(0, 0, 0, 0.35);
+
+    text-align: left;
+}
+
+#assistant h2 {
+    text-align: center;
+    font-size: 34px;
+    margin-bottom: 30px;
+
+    background: linear-gradient(90deg, #60a5fa, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+#assistantQuestion {
+    width: 100%;
+    padding: 15px 18px;
+
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+
+    background: rgba(255, 255, 255, 0.06);
+    color: white;
+
+    font-size: 15px;
+    outline: none;
+
+    transition: 0.2s ease;
+}
+
+#assistantQuestion::placeholder {
+    color: #7f8aa5;
+}
+
+#assistantQuestion:focus {
+    border-color: #60a5fa;
+
+    background: rgba(255, 255, 255, 0.09);
+
+    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.12);
+}
+
+#askBtn {
+    width: 100%;
+    margin-top: 18px;
+    padding: 15px;
+
+    font-size: 16px;
+}
+
+#assistantAnswer {
+    margin-top: 25px;
+    padding: 20px;
+
+    border-radius: 14px;
+
+    background: rgba(96, 165, 250, 0.08);
+    border: 1px solid rgba(96, 165, 250, 0.18);
+
+    color: #dbeafe;
+
+    line-height: 1.7;
+    font-size: 16px;
+
+    min-height: 20px;
+}
+
+/* Mobile */
+
+@media (max-width: 600px) {
+
+    #assistant {
+        padding: 28px 22px;
+    }
+
+    #assistant h2 {
+        font-size: 28px;
+    }
+}
+
+/* =========================
+   CAREER RECOMMENDATION
+========================= */
+
+#result {
+    display: block;
+    width: 100%;
+    margin-top: 35px;
+    padding: 35px;
+
+    border-radius: 24px;
+
+    background: linear-gradient(
+        145deg,
+        rgba(96, 165, 250, 0.12),
+        rgba(124, 58, 237, 0.12)
+    );
+
+    border: 1px solid rgba(255, 255, 255, 0.15);
+
+    box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+    color: white;
+}
+
+
+/* =========================
+   MAIN TITLE
+========================= */
+
+#result h2 {
+    text-align: center;
+
+    font-size: 30px;
+    font-weight: 800;
+
+    margin-bottom: 30px;
+
+    background: linear-gradient(
+        90deg,
+        #60a5fa,
+        #a78bfa,
+        #c084fc
+    );
+
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+
+/* =========================
+   CAREER NAME
+========================= */
+
+#result h3 {
+    text-align: center;
+
+    font-size: 32px;
+    font-weight: 800;
+
+    margin-bottom: 25px;
+
+    color: #ffffff;
+}
+
+
+/* =========================
+   TEXT
+========================= */
+
+#result p {
+    color: #dbeafe;
+
+    font-size: 16px;
+    line-height: 1.8;
+
+    margin-bottom: 18px;
+}
+
+
+/* =========================
+   MATCH SCORE
+========================= */
+
+#result p:first-of-type {
+    text-align: center;
+
+    padding: 15px;
+
+    border-radius: 14px;
+
+    background: rgba(96, 165, 250, 0.12);
+
+    border: 1px solid rgba(96, 165, 250, 0.25);
+
+    font-size: 18px;
+}
+
+#result p:first-of-type strong {
+    color: #60a5fa;
+}
+
+
+/* =========================
+   WHY
+========================= */
+
+#result p:nth-of-type(2) {
+    padding: 18px 20px;
+
+    border-left: 4px solid #a78bfa;
+
+    border-radius: 12px;
+
+    background: rgba(167, 139, 250, 0.08);
+}
+
+
+/* =========================
+   SECTION TITLES
+========================= */
+
+#result h4 {
+    margin-top: 32px;
+    margin-bottom: 16px;
+
+    font-size: 20px;
+    font-weight: 700;
+
+    color: #a78bfa;
+}
+
+
+/* =========================
+   LIST BOX
+========================= */
+
+#result ul,
+#result ol {
+    margin: 0;
+
+    padding: 20px 20px 20px 42px;
+
+    border-radius: 16px;
+
+    background: rgba(255, 255, 255, 0.045);
+
+    border: 1px solid rgba(255, 255, 255, 0.10);
+
+    color: #dbeafe;
+
+    line-height: 1.9;
+}
+
+
+/* =========================
+   LIST ITEMS
+========================= */
+
+#result li {
+    margin-bottom: 8px;
+
+    padding-left: 5px;
+}
+
+
+/* =========================
+   ROADMAP NUMBERS
+========================= */
+
+#result ol li::marker {
+    color: #60a5fa;
+    font-weight: 800;
+}
+
+
+/* =========================
+   MOBILE
+========================= */
+
+@media (max-width: 600px) {
+
+    #result {
+        padding: 25px 20px;
+    }
+
+    #result h2 {
+        font-size: 24px;
+    }
+
+    #result h3 {
+        font-size: 27px;
+    }
+
+    #result p {
+        font-size: 15px;
+    }
+
+    #result ul,
+    #result ol {
+        padding-left: 35px;
+    }
+}
+/* Remove number input arrows */
+#year::-webkit-inner-spin-button,
+#year::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+#year {
+    -moz-appearance: textfield;
+}
+
+

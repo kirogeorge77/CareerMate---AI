@@ -1,8 +1,18 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import sqlite3
 from career_model import recommend_career as ai_recommend_career
 app = FastAPI(title="CareerMate AI")
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # =========================
@@ -353,12 +363,19 @@ def recommend_career(request: CareerRecommendationRequest):
         subject.strip()
         for subject in assessment["favorite_subjects"].split(",")
     ]
+       # Use AI model
+    print("SKILLS:", skills)
+    print("INTERESTS:", interests)
+    print("SUBJECTS:", favorite_subjects)
+    print("WORK STYLE:", assessment["work_style"])
+    print("EXPERIENCE LEVEL:", assessment["experience_level"])
 
-    # Use AI model
     result = ai_recommend_career(
         skills=skills,
         interests=interests,
-        favorite_subjects=favorite_subjects
+        favorite_subjects=favorite_subjects,
+        work_style=assessment["work_style"],
+        experience_level=assessment["experience_level"]
     )
 
     return {
@@ -377,9 +394,8 @@ def recommend_career(request: CareerRecommendationRequest):
 @app.post("/career-assistant")
 def career_assistant(request: CareerAssistantRequest):
 
-    question = request.question.lower()
+    question = request.question.lower().strip()
 
-    # Get career recommendation
     recommendation = recommend_career(
         CareerRecommendationRequest(
             student_id=request.student_id
@@ -387,81 +403,131 @@ def career_assistant(request: CareerAssistantRequest):
     )
 
     career = recommendation["recommended_career"]
+    score = recommendation["match_score"]
     skills = recommendation["skills_to_learn"]
     roadmap = recommendation["roadmap"]
     reason = recommendation["reason"]
 
-    # Why career?
-    if (
-        "why" in question
-        or "ليه" in question
-        or "لماذا" in question
-        or "سبب" in question
-        or "رشحت" in question
-    ):
-        if any(word in question for word in ["ليه", "لماذا", "سبب", "رشحت"]):
-           answer = (
-    f"رشحتلك {career} لأن مهاراتك واهتماماتك متوافقة بشكل جيد "
-    f"مع المجال ده."
-)
-        else:
-            answer = (
-                f"Based on your skills and interests, I recommend {career}. "
-                f"{reason}"
-            )
-
-    # What should I learn?
-    elif (
-        "learn" in question
-        or "study" in question
-        or "اتعلم" in question
-        or "أتعلم" in question
-        or "اتعلم ايه" in question
-        or "أتعلم ايه" in question
-        or "skills" in question
-        or "مهارات" in question
-    ):
-        if any(word in question for word in ["اتعلم", "أتعلم", "مهارات"]):
-            answer = (
-                f"عشان تبدأ في مجال {career}، أنصحك تتعلم: "
-                + "، ".join(skills)
-            )
-        else:
-            answer = (
-                f"For {career}, you should start learning: "
-                + ", ".join(skills)
-            )
-
-    # Roadmap
-    elif (
-        "roadmap" in question
-        or "plan" in question
-        or "خطة" in question
-        or "خارطة" in question
-        or "الطريق" in question
-    ):
-        if any(word in question for word in ["خطة", "خارطة", "الطريق"]):
-            answer = (
-                f"دي الخطة المقترحة ليك عشان تتطور في مجال {career}: "
-                + " → ".join(roadmap)
-            )
-        else:
-            answer = (
-                f"Your learning roadmap for {career}: "
-                + " → ".join(roadmap)
-            )
-
-    # Default response
-    else:
+    # WHY
+    if any(x in question for x in [
+        "why",
+        "reason",
+        "recommend",
+        "رشحت",
+        "ليه",
+        "لماذا",
+        "سبب"
+    ]):
         answer = (
-            f"مجالك المقترح هو {career}. "
-            f"تقدر تبدأ بتعلم: "
+            f"رشحتلك {career} لأن مهاراتك واهتماماتك متوافقة "
+            f"بشكل جيد مع المجال ده. نسبة التوافق هي {score}%."
+        )
+
+    # SKILLS
+    elif any(x in question for x in [
+        "learn",
+        "study",
+        "skill",
+        "skills",
+        "تعلم",
+        "اتعلم",
+        "أتعلم",
+        "مهارات",
+        "مهارة"
+    ]):
+        answer = (
+            f"عشان تبدأ في مجال {career}، أنصحك تتعلم: "
             + "، ".join(skills)
         )
 
-    return {
+    # ROADMAP
+    elif any(x in question for x in [
+        "roadmap",
+        "plan",
+        "start",
+        "begin",
+        "steps",
+        "خطة",
+        "خارطة",
+        "ابدأ",
+        "ابدأ منين",
+        "البداية",
+        "خطوات",
+        "الطريق"
+    ]):
+        answer = (
+            f"لو عايز تبدأ في مجال {career}، امشي بالترتيب ده: "
+            + " → ".join(roadmap)
+        )
+
+    # SUITABILITY
+    elif any(x in question for x in [
+        "هل انا مناسب",
+        "هل أنا مناسب",
+        "مناسب ليا",
+        "مناسب لي",
+        "ينفع ليا",
+        "ينفع لي",
+        "هل يناسبني",
+        "مناسب",
+        "am i suitable",
+        "is this suitable",
+        "good fit",
+        "fit for me"
+    ]):
+        answer = (
+            f"أيوه 👍 المجال ده مناسب ليك بناءً على بياناتك الحالية. "
+            f"نسبة التوافق هي {score}%. "
+            f"ومهاراتك واهتماماتك بتدعم اختيار {career}."
+        )
+
+    # CAREER INFORMATION
+    elif any(x in question for x in [
+        "what is",
+        "what does",
+        "يعني ايه",
+        "يعني إيه",
+        "ايه هو",
+        "إيه هو",
+        "مجال",
+        "وظيفة"
+    ]):
+        answer = (
+            f"{career} هو مجال متخصص في تطوير وبناء حلول ومشروعات "
+            f"باستخدام المهارات التقنية المرتبطة بالمجال. "
+            f"وبناءً على بياناتك، هو المجال المقترح ليك."
+        )
+
+    # GREETING
+    elif any(x in question for x in [
+        "hello",
+        "hi",
+        "hey",
+        "مرحبا",
+        "اهلا",
+        "أهلا",
+        "السلام عليكم"
+    ]):
+        answer = (
+            "أهلاً بيك 👋 أنا Career Assistant. "
+            "اسألني عن المجال المقترح، المهارات المطلوبة، "
+            "أو الـ roadmap."
+        )
+
+    # UNKNOWN
+    else:
+        answer = (
+            "مش قادر أحدد قصدك من السؤال 🤔. "
+            "ممكن تسألني مثلًا: "
+            "\"ليه رشحتلي المجال ده؟\"، "
+            "\"أتعلم إيه؟\"، "
+            "\"هل المجال ده مناسب ليا؟\"، "
+            "أو \"أبدأ منين؟\""
+        )
+        return {
         "student_id": request.student_id,
         "question": request.question,
         "career": career,
         "answer": answer
     }
+app.mount("/frontend", StaticFiles(directory="frontend", html=True), name="frontend")
