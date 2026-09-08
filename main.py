@@ -1,10 +1,19 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-import sqlite3
-from career_model import recommend_career as ai_recommend_career
-app = FastAPI(title="CareerMate AI")
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+import sqlite3
+import os
+
+from openai import OpenAI
+from career_model import recommend_career as ai_recommend_career
+
+
+app = FastAPI(title="CareerMate AI")
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -13,8 +22,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
 # =========================
 # Database Setup
 # =========================
@@ -390,12 +397,10 @@ def recommend_career(request: CareerRecommendationRequest):
 # =========================
 # AI Career Assistant
 # =========================
-
 @app.post("/career-assistant")
 def career_assistant(request: CareerAssistantRequest):
 
-    question = request.question.lower().strip()
-
+    # Get the student's career recommendation
     recommendation = recommend_career(
         CareerRecommendationRequest(
             student_id=request.student_id
@@ -408,126 +413,177 @@ def career_assistant(request: CareerAssistantRequest):
     roadmap = recommendation["roadmap"]
     reason = recommendation["reason"]
 
-    # WHY
-    if any(x in question for x in [
-        "why",
-        "reason",
-        "recommend",
-        "رشحت",
-        "ليه",
-        "لماذا",
-        "سبب"
-    ]):
-        answer = (
-            f"رشحتلك {career} لأن مهاراتك واهتماماتك متوافقة "
-            f"بشكل جيد مع المجال ده. نسبة التوافق هي {score}%."
+    # Prepare student information
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT name, university, major, year, skills
+        FROM students
+        WHERE id = ?
+        """,
+        (request.student_id,)
+    )
+
+    student = cursor.fetchone()
+
+    cursor.execute(
+        """
+        SELECT interests, favorite_subjects, work_style, experience_level
+        FROM assessments
+        WHERE student_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (request.student_id,)
+    )
+
+    assessment = cursor.fetchone()
+
+    conn.close()
+
+    # Check if student exists
+    if not student:
+        raise HTTPException(
+            status_code=404,
+            detail="Student not found"
         )
 
-    # SKILLS
-    elif any(x in question for x in [
-        "learn",
-        "study",
-        "skill",
-        "skills",
-        "تعلم",
-        "اتعلم",
-        "أتعلم",
-        "مهارات",
-        "مهارة"
-    ]):
-        answer = (
-            f"عشان تبدأ في مجال {career}، أنصحك تتعلم: "
-            + "، ".join(skills)
-        )
+    name, university, major, year, student_skills = student
 
-    # ROADMAP
-    elif any(x in question for x in [
-        "roadmap",
-        "plan",
-        "start",
-        "begin",
-        "steps",
-        "خطة",
-        "خارطة",
-        "ابدأ",
-        "ابدأ منين",
-        "البداية",
-        "خطوات",
-        "الطريق"
-    ]):
-        answer = (
-            f"لو عايز تبدأ في مجال {career}، امشي بالترتيب ده: "
-            + " → ".join(roadmap)
-        )
-
-    # SUITABILITY
-    elif any(x in question for x in [
-        "هل انا مناسب",
-        "هل أنا مناسب",
-        "مناسب ليا",
-        "مناسب لي",
-        "ينفع ليا",
-        "ينفع لي",
-        "هل يناسبني",
-        "مناسب",
-        "am i suitable",
-        "is this suitable",
-        "good fit",
-        "fit for me"
-    ]):
-        answer = (
-            f"أيوه 👍 المجال ده مناسب ليك بناءً على بياناتك الحالية. "
-            f"نسبة التوافق هي {score}%. "
-            f"ومهاراتك واهتماماتك بتدعم اختيار {career}."
-        )
-
-    # CAREER INFORMATION
-    elif any(x in question for x in [
-        "what is",
-        "what does",
-        "يعني ايه",
-        "يعني إيه",
-        "ايه هو",
-        "إيه هو",
-        "مجال",
-        "وظيفة"
-    ]):
-        answer = (
-            f"{career} هو مجال متخصص في تطوير وبناء حلول ومشروعات "
-            f"باستخدام المهارات التقنية المرتبطة بالمجال. "
-            f"وبناءً على بياناتك، هو المجال المقترح ليك."
-        )
-
-    # GREETING
-    elif any(x in question for x in [
-        "hello",
-        "hi",
-        "hey",
-        "مرحبا",
-        "اهلا",
-        "أهلا",
-        "السلام عليكم"
-    ]):
-        answer = (
-            "أهلاً بيك 👋 أنا Career Assistant. "
-            "اسألني عن المجال المقترح، المهارات المطلوبة، "
-            "أو الـ roadmap."
-        )
-
-    # UNKNOWN
+    # Assessment information
+    if assessment:
+        interests, favorite_subjects, work_style, experience_level = assessment
     else:
-        answer = (
-            "مش قادر أحدد قصدك من السؤال 🤔. "
-            "ممكن تسألني مثلًا: "
-            "\"ليه رشحتلي المجال ده؟\"، "
-            "\"أتعلم إيه؟\"، "
-            "\"هل المجال ده مناسب ليا؟\"، "
-            "أو \"أبدأ منين؟\""
+        interests = "Not provided"
+        favorite_subjects = "Not provided"
+        work_style = "Not provided"
+        experience_level = "Not provided"
+
+       # System instructions for CareerMate AI
+    system_prompt = """
+You are CareerMate AI, a simple and friendly career assistant.
+
+Answer the student's question clearly and in an organized format.
+
+IMPORTANT FORMAT:
+- Always use numbered sections.
+- Each section must have a bold title.
+- Under each title, use short bullet points starting with "-".
+- Do NOT write long paragraphs.
+- Do NOT use large headings.
+- Keep each bullet short and simple.
+- Use 5 to 8 numbered sections when possible.
+- If the question is about a roadmap, use the same numbered format.
+- If the question needs fewer sections, use fewer sections.
+- Use Markdown formatting.
+- Use **bold** for section titles.
+- If the student asks in Arabic, answer in Egyptian Arabic.
+- Keep answers beginner-friendly and practical.
+- Personalize the answer using the student's profile when relevant.
+
+Example format:
+
+1. **Programming Basics**
+   - Variables
+   - Conditions
+   - Loops
+   - OOP
+
+2. **JavaScript**
+   - JavaScript basics
+   - ES6
+   - Async/Await
+
+3. **Node.js**
+   - Building a Backend
+   - Working with APIs
+
+4. **Express.js**
+   - Routes
+   - Middleware
+   - REST APIs
+
+5. **Databases**
+   - SQL
+   - PostgreSQL
+
+6. **Authentication**
+   - Login
+   - Register
+   - Authorization
+
+7. **Projects**
+   - To-Do API
+   - Blog API
+   - User Authentication System
+"""
+    # Student profile
+    student_info = f"""
+Student Name: {name}
+University: {university}
+Major: {major}
+University Year: {year}
+Current Skills: {student_skills}
+
+Interests: {interests}
+Favorite Subjects: {favorite_subjects}
+Work Style: {work_style}
+Experience Level: {experience_level}
+
+Recommended Career: {career}
+Match Score: {score}%
+Reason: {reason}
+
+Skills Recommended to Learn:
+{", ".join(skills)}
+
+Recommended Roadmap:
+{" → ".join(roadmap)}
+"""
+
+    # User question
+    user_prompt = f"""
+Student Profile:
+{student_info}
+
+Student Question:
+{request.question}
+
+Answer the student's question directly.
+
+Use the student profile when it is relevant.
+"""
+
+    # Send question to OpenAI
+    try:
+        response = client.responses.create(
+            model="gpt-5.6-luna",
+            instructions=system_prompt,
+            input=user_prompt
         )
-        return {
+
+        answer = response.output_text
+
+    except Exception as e:
+        print("AI ASSISTANT ERROR:", repr(e))
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"AI Assistant Error: {str(e)}"
+        )
+
+    # Return response to frontend
+    return {
         "student_id": request.student_id,
         "question": request.question,
         "career": career,
         "answer": answer
     }
-app.mount("/frontend", StaticFiles(directory="frontend", html=True), name="frontend")
+
+app.mount(
+    "/frontend",
+    StaticFiles(directory="frontend", html=True),
+    name="frontend"
+)

@@ -142,41 +142,65 @@ document.getElementById("result").innerHTML = `
         document.getElementById("message").textContent =
             "❌ Something went wrong. Make sure the backend is running.";
     }
-});
-const askBtn = document.getElementById("askBtn");
+     const askBtn = document.getElementById("askBtn");
 
 askBtn.addEventListener("click", async function () {
 
-    const question = document.getElementById("assistantQuestion").value;
-    if (question.trim() === "") {
-    document.getElementById("assistantAnswer").textContent =
-        "⚠️ Please enter a question first.";
+    const question = document.getElementById("assistantQuestion").value.trim();
+    const answerBox = document.getElementById("assistantAnswer");
 
-    return;
-}
-if (currentStudentId === null) {
-    document.getElementById("assistantAnswer").textContent =
-        "⚠️ Please complete the Career Assessment first.";
+    if (question === "") {
+        answerBox.textContent =
+            "⚠️ Please enter a question first.";
+        return;
+    }
 
-    return;
-}
+    if (currentStudentId === null) {
+        answerBox.textContent =
+            "⚠️ Please complete the Career Assessment first.";
+        return;
+    }
 
-    const response = await fetch(
-        "http://127.0.0.1:8000/career-assistant",
-        {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                student_id: currentStudentId,
-                question: question
-            })
+    try {
+
+        const response = await fetch(
+            "http://127.0.0.1:8000/career-assistant",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    student_id: currentStudentId,
+                    question: question
+                })
+            }
+        );
+
+        const data = await response.json();
+
+        if (data.answer) {
+
+            answerBox.innerHTML = data.answer
+                .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+                .replace(/\n/g, "<br>");
+
+        } else {
+
+            answerBox.textContent =
+                "❌ No answer received from Career Assistant.";
+
         }
-    );
 
-    const data = await response.json();
+       } catch (error) {
 
-    document.getElementById("assistantAnswer").textContent =
-        data.answer;
-});
+        console.error(error);
+
+        answerBox.textContent =
+            "❌ Something went wrong. Make sure the backend is running.";
+
+    }
+
+ });
+
+    });
