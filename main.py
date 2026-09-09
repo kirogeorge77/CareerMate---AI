@@ -1,12 +1,16 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.staticfiles import StaticFiles
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-import sqlite3
 import os
-
+import json
+import re
+import sqlite3
+from dotenv import load_dotenv
 from openai import OpenAI
+
+load_dotenv()
 from career_model import recommend_career as ai_recommend_career
 
 
@@ -587,3 +591,97 @@ app.mount(
     StaticFiles(directory="frontend", html=True),
     name="frontend"
 )
+# =========================
+# CV ANALYSIS
+# =========================
+
+@app.post("/analyze-cv")
+async def analyze_cv(file: UploadFile = File(...)):
+
+    # Allowed file types
+    allowed_extensions = [".pdf", ".doc", ".docx"]
+
+    file_extension = os.path.splitext(file.filename)[1].lower()
+
+    if file_extension not in allowed_extensions:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Only PDF, DOC, and DOCX files are allowed."
+        )
+
+    try:
+
+        # Read uploaded file
+        content = await file.read()
+
+        cv_info = f"""
+The user uploaded a CV.
+
+File name: {file.filename}
+File type: {file_extension}
+File size: {len(content)} bytes
+
+Give a career recommendation based on the available CV information.
+"""
+
+        system_prompt = """
+You are CareerMate AI.
+
+Recommend the most suitable career path for the user.
+
+Return ONLY valid JSON in exactly this format:
+
+{
+    "recommended_career": "Career Name",
+    "match_score": 85,
+    "reason": "Short explanation",
+    "skills_to_learn": [
+        "Skill 1",
+        "Skill 2",
+        "Skill 3"
+    ],
+    "roadmap": [
+        "Step 1",
+        "Step 2",
+        "Step 3",
+        "Step 4"
+    ]
+}
+
+Rules:
+- match_score must be between 0 and 100.
+- Return JSON only.
+- Do not use markdown.
+"""
+
+        response = client.responses.create(
+
+            model="gpt-4.1-mini",
+
+            instructions=system_prompt,
+
+            input=cv_info
+
+        )
+
+        ai_response = response.output_text.strip()
+
+        # Clean possible markdown
+        ai_response = ai_response.replace("```json", "")
+        ai_response = ai_response.replace("```", "")
+        ai_response = ai_response.strip()
+
+        result = json.loads(ai_response)
+
+        return result
+
+
+    except Exception as e:
+
+        print("CV ANALYSIS ERROR:", repr(e))
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )

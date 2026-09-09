@@ -1,6 +1,16 @@
+
 let currentStudentId = null;
+
 const startBtn = document.getElementById("startBtn");
 const submitBtn = document.getElementById("submitBtn");
+const cvFile = document.getElementById("cvFile");
+const chooseFileBtn = document.getElementById("chooseFileBtn");
+const uploadBox = document.getElementById("uploadBox");
+const fileName = document.getElementById("fileName");
+
+// =========================
+// START BUTTON
+// =========================
 
 startBtn.addEventListener("click", function () {
     document.getElementById("assessment").scrollIntoView({
@@ -8,146 +18,193 @@ startBtn.addEventListener("click", function () {
     });
 });
 
-submitBtn.addEventListener("click", async function (event) {
+// =========================
+// CHOOSE FILE
+// =========================
 
+chooseFileBtn.addEventListener("click", function (event) {
     event.stopPropagation();
+    cvFile.click();
+});
+
+// =========================
+// CLICK UPLOAD BOX
+// =========================
+
+uploadBox.addEventListener("click", function () {
+    cvFile.click();
+});
+
+// =========================
+// FILE SELECTED
+// =========================
+
+cvFile.addEventListener("change", function () {
+    if (cvFile.files.length > 0) {
+        fileName.textContent =
+            "Selected File: " + cvFile.files[0].name;
+    }
+});
+
+// =========================
+// DRAG AND DROP
+// =========================
+
+uploadBox.addEventListener("dragover", function (event) {
+    event.preventDefault();
+});
+
+uploadBox.addEventListener("drop", function (event) {
     event.preventDefault();
 
-    const name = document.getElementById("name").value.trim();
-    const university = document.getElementById("university").value.trim();
-    const major = document.getElementById("major").value.trim();
+    const file = event.dataTransfer.files[0];
 
-    if (
-        name === "" ||
-        university === "" ||
-        major === "" ||
-        document.getElementById("skills").value.trim() === "" ||
-        document.getElementById("interests").value.trim() === "" ||
-        document.getElementById("subjects").value.trim() === ""
-    ) {
-        document.getElementById("message").textContent =
-            "⚠️ Please fill in all fields before submitting.";
+    if (file) {
+        cvFile.files = event.dataTransfer.files;
 
+        fileName.textContent =
+            "Selected File: " + file.name;
+    }
+});
+
+// =========================
+// ANALYZE CV
+// =========================
+
+submitBtn.addEventListener("click", async function (event) {
+    event.preventDefault();
+
+    const messageBox = document.getElementById("message");
+    const resultBox = document.getElementById("result");
+
+    // Check if file exists
+    if (cvFile.files.length === 0) {
+        messageBox.textContent =
+            "⚠️ Please upload your CV first.";
         return;
     }
-    
-    const year = Number(document.getElementById("year").value);
 
-    const skills = document.getElementById("skills").value
-        .split(",")
-        .map(skill => skill.trim())
-        .filter(skill => skill !== "");
+    const file = cvFile.files[0];
 
-    const interests = document.getElementById("interests").value
-        .split(",")
-        .map(item => item.trim())
-        .filter(item => item !== "");
+    // Check file size (10 MB)
+    if (file.size > 10 * 1024 * 1024) {
+        messageBox.textContent =
+            "⚠️ File size must be less than 10MB.";
+        return;
+    }
 
-    const subjects = document.getElementById("subjects").value
-        .split(",")
-        .map(item => item.trim())
-        .filter(item => item !== "");
+    // Check file type
+    const allowedExtensions = [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    ];
 
-       console.log("FORM SKILLS:", skills.join(", "));
-console.log("FORM INTERESTS:", interests.join(", "));
-console.log("FORM SUBJECTS:", subjects.join(", "));
-
-    const workStyle = document.getElementById("workStyle").value;
-    const experienceLevel = document.getElementById("experienceLevel").value;
+    if (!allowedExtensions.includes(file.type)) {
+        messageBox.textContent =
+            "⚠️ Please upload a PDF, DOC, or DOCX file.";
+        return;
+    }
 
     try {
+        messageBox.textContent =
+            "⏳ Uploading and analyzing your CV...";
 
-        // Send student data to backend
-        const studentResponse = await fetch("http://127.0.0.1:8000/students", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                name: name,
-                university: university,
-                major: major,
-                year: year,
-                skills: skills
-            })
-        });
+        resultBox.innerHTML = "";
 
-        const studentData = await studentResponse.json();
+        // Create FormData
+        const formData = new FormData();
+        formData.append("file", file);
 
-        console.log("Student created:", studentData);
-        currentStudentId = studentData.student_id;
+        // Send CV to Backend
+        const response = await fetch(
+            "http://127.0.0.1:8000/analyze-cv",
+            {
+                method: "POST",
+                body: formData
+            }
+        );
 
-        // Send assessment data to backend
-        const assessmentResponse = await fetch("http://127.0.0.1:8000/assessment", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                student_id: studentData.student_id,
-                interests: interests,
-                favorite_subjects: subjects,
-                work_style: workStyle,
-                experience_level: experienceLevel
-            })
-        });
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(
+                `Backend error: ${response.status} - ${errorText}`
+            );
+        }
 
-        const assessmentData = await assessmentResponse.json();
+        const data = await response.json();
 
-        console.log("Assessment created:", assessmentData);
+        console.log("CV Analysis:", data);
 
-        document.getElementById("message").textContent =
-            "✅ Assessment submitted successfully!";
-            const recommendationResponse = await fetch(
-    "http://127.0.0.1:8000/recommend",
-    {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            student_id: studentData.student_id,
-        })
-    }
-);
+        // Save student ID if backend returns one
+        if (data.student_id) {
+            currentStudentId = data.student_id;
+        }
 
-const recommendation = await recommendationResponse.json();
-console.log("AI Recommendation:", recommendation);
+        messageBox.textContent =
+            "✅ CV analyzed successfully!";
 
-document.getElementById("result").innerHTML = `
-    <h2>🎯 Your Career Recommendation</h2>
+        // Display Recommendation
+        resultBox.innerHTML = `
+            <h2>🎯 Your Career Recommendation</h2>
 
-    <h3>${recommendation.recommended_career}</h3>
+            <h3>${data.recommended_career || "Not available"}</h3>
 
-    <p><strong>Match Score:</strong> ${recommendation.match_score}%</p>
+            <p>
+                <strong>Match Score:</strong>
+                ${data.match_score ?? "N/A"}%
+            </p>
 
-    <p><strong>Why?</strong> ${recommendation.reason}</p>
+            <p>
+                <strong>Why?</strong>
+                ${data.reason || "No reason provided."}
+            </p>
 
-    <h4>📚 Skills to Learn</h4>
-    <ul>
-        ${recommendation.skills_to_learn.map(skill => `<li>${skill}</li>`).join("")}
-    </ul>
+            <h4>📚 Skills to Learn</h4>
 
-    <h4>🗺️ Your Roadmap</h4>
-    <ol>
-        ${recommendation.roadmap.map(step => `<li>${step}</li>`).join("")}
-    </ol>
-`;
-            
+            <ul>
+                ${(data.skills_to_learn || [])
+                    .map(skill => `<li>${skill}</li>`)
+                    .join("")}
+            </ul>
+
+            <h4>🗺️ Your Roadmap</h4>
+
+            <ol>
+                ${(data.roadmap || [])
+                    .map(step => `<li>${step}</li>`)
+                    .join("")}
+            </ol>
+        `;
 
     } catch (error) {
+        console.error("CV Analysis Error:", error);
 
-        console.error(error);
-
-        document.getElementById("message").textContent =
+        messageBox.textContent =
             "❌ Something went wrong. Make sure the backend is running.";
+
+        resultBox.innerHTML = `
+            <p>
+                <strong>Error:</strong> ${error.message}
+            </p>
+        `;
     }
-     const askBtn = document.getElementById("askBtn");
+});
+
+// =========================
+// CAREER ASSISTANT
+// =========================
+
+const askBtn = document.getElementById("askBtn");
 
 askBtn.addEventListener("click", async function () {
+    const question = document
+        .getElementById("assistantQuestion")
+        .value
+        .trim();
 
-    const question = document.getElementById("assistantQuestion").value.trim();
-    const answerBox = document.getElementById("assistantAnswer");
+    const answerBox =
+        document.getElementById("assistantAnswer");
 
     if (question === "") {
         answerBox.textContent =
@@ -157,11 +214,13 @@ askBtn.addEventListener("click", async function () {
 
     if (currentStudentId === null) {
         answerBox.textContent =
-            "⚠️ Please complete the Career Assessment first.";
+            "⚠️ Please analyze your CV first.";
         return;
     }
 
     try {
+        answerBox.textContent =
+            "⏳ Career Assistant is thinking...";
 
         const response = await fetch(
             "http://127.0.0.1:8000/career-assistant",
@@ -177,30 +236,30 @@ askBtn.addEventListener("click", async function () {
             }
         );
 
+        if (!response.ok) {
+            const errorText = await response.text();
+
+            throw new Error(
+                `Backend error: ${response.status} - ${errorText}`
+            );
+        }
+
         const data = await response.json();
 
         if (data.answer) {
-
             answerBox.innerHTML = data.answer
                 .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
                 .replace(/\n/g, "<br>");
-
         } else {
-
             answerBox.textContent =
                 "❌ No answer received from Career Assistant.";
-
         }
 
-       } catch (error) {
-
-        console.error(error);
+    } catch (error) {
+        console.error("Career Assistant Error:", error);
 
         answerBox.textContent =
             "❌ Something went wrong. Make sure the backend is running.";
-
     }
+});
 
- });
-
-    });

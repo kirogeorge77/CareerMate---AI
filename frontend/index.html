@@ -1,21 +1,23 @@
 <!DOCTYPE html>
 
 <html lang="en">
+
 <head>
+
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-```
-<title>CareerMate AI</title>
+    <title>CareerMate AI</title>
 
-<link rel="stylesheet" href="style.css">
-```
+    <link rel="stylesheet" href="style.css">
 
 </head>
 
+
 <body>
 
-```
+
 <!-- =========================
      HERO SECTION
 ========================== -->
@@ -28,7 +30,7 @@
 
         <p>
             Discover the career path that matches your skills,
-            interests, favorite subjects, work style, and experience.
+            experience, and professional background.
         </p>
 
         <button id="startBtn">
@@ -40,6 +42,7 @@
 </section>
 
 
+
 <!-- =========================
      CAREER ASSESSMENT
 ========================== -->
@@ -49,158 +52,86 @@
     <h2>Career Assessment</h2>
 
     <p>
-        Fill in your information to get your personalized career recommendation.
+        Upload your CV to get your personalized career recommendation.
     </p>
 
 
-    <!-- Name -->
+    <!-- =========================
+         CV UPLOAD
+    ========================== -->
 
-    <label for="name">
-        Name
-    </label>
-
-    <input
-        type="text"
-        id="name"
-        placeholder="Enter your name"
-    >
+    <div class="upload-container" id="uploadBox">
 
 
-    <!-- University -->
+        <!-- Upload Icon -->
 
-    <label for="university">
-        University
-    </label>
+        <div class="upload-icon">
 
-    <input
-        type="text"
-        id="university"
-        placeholder="Enter your university"
-    >
+            📄
+
+        </div>
 
 
-    <!-- Major -->
-
-    <label for="major">
-        Major
-    </label>
-
-    <input
-        type="text"
-        id="major"
-        placeholder="Enter your major"
-    >
+        <h3>
+            Upload Your CV
+        </h3>
 
 
-    <!-- Year -->
+        <p class="upload-text">
 
-    <label for="year">
-    University Year
-</label>
+            Drag and drop your CV here,
+            or click the button below to browse.
 
-<select id="year">
-
-    <option value="1">1</option>
-    <option value="2">2</option>
-    <option value="3">3</option>
-    <option value="4">4</option>
-
-</select>
+        </p>
 
 
-    <!-- Skills -->
+        <p class="file-info">
 
-    <label for="skills">
-        Skills
-    </label>
+            Supported formats: PDF, DOC, DOCX
 
-    <input
-        type="text"
-        id="skills"
-        placeholder="Example: Python, HTML, CSS"
-    >
+            <br>
+
+            Maximum file size: 10MB
+
+        </p>
 
 
-    <!-- Interests -->
+        <!-- Hidden File Input -->
 
-    <label for="interests">
-        Interests
-    </label>
-
-    <input
-        type="text"
-        id="interests"
-        placeholder="Example: Programming, AI, Data Analysis"
-    >
+        <input
+            type="file"
+            id="cvFile"
+            accept=".pdf,.doc,.docx"
+            style="display: none;"
+        >
 
 
-    <!-- Favorite Subjects -->
+        <!-- Choose File Button -->
 
-    <label for="subjects">
-        Favorite Subjects
-    </label>
+        <label for="cvFile" id="chooseFileBtn">
 
-    <input
-        type="text"
-        id="subjects"
-        placeholder="Example: Mathematics, Programming"
-    >
+            Choose File
+
+        </label>
 
 
-    <!-- Work Style -->
+        <!-- Selected File Name -->
 
-    <label for="workStyle">
-        Work Style
-    </label>
-
-    <select id="workStyle">
-
-        <option value="Creative">
-            Creative
-        </option>
-
-        <option value="Analytical">
-            Analytical
-        </option>
-
-        <option value="Teamwork">
-            Teamwork
-        </option>
-
-        <option value="Independent">
-            Independent
-        </option>
-
-    </select>
+        <div id="fileName"></div>
 
 
-    <!-- Experience Level -->
-
-    <label for="experienceLevel">
-        Experience Level
-    </label>
-
-    <select id="experienceLevel">
-
-        <option value="Beginner">
-            Beginner
-        </option>
-
-        <option value="Intermediate">
-            Intermediate
-        </option>
-
-        <option value="Advanced">
-            Advanced
-        </option>
-
-    </select>
+    </div>
 
 
-    <!-- Submit -->
+
+    <!-- =========================
+         SUBMIT BUTTON
+    ========================== -->
 
     <button id="submitBtn">
-        Get Career Recommendation
+
+        Analyze My CV
+
     </button>
 
 
@@ -215,7 +146,9 @@
 
     <div id="result"></div>
 
+
 </section>
+
 
 
 <!-- =========================
@@ -237,13 +170,17 @@
 
 
     <button id="askBtn">
+
         Ask Career Assistant
+
     </button>
 
 
     <div id="assistantAnswer"></div>
 
+
 </section>
+
 
 
 <!-- =========================
@@ -251,7 +188,8 @@
 ========================== -->
 
 <script src="script.js"></script>
-```
+
 
 </body>
+
 </html>
