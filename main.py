@@ -1,45 +1,87 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File
+import json
+import os
+import sqlite3
+import io
+
+from dotenv import load_dotenv
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from openai import OpenAI
 from pydantic import BaseModel
 
-import os
-import json
-import re
-import sqlite3
-from dotenv import load_dotenv
-from openai import OpenAI
+from pypdf import PdfReader
+from docx import Document
 
-load_dotenv()
 from career_model import recommend_career as ai_recommend_career
 
 
+# =========================================================
+# CONFIGURATION
+# =========================================================
+
+load_dotenv(override=True)
+
 app = FastAPI(title="CareerMate AI")
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+api_key = os.getenv(
+    "OPENROUTER_API_KEY",
+    ""
+).strip().strip('"').strip("'")
+
+
+if not api_key:
+    print("WARNING: OPENROUTER_API_KEY is not configured.")
+
+
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=api_key,
+)
+
+
+# =========================================================
+# CORS
+# =========================================================
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=[
+        "http://127.0.0.1:8000",
+        "http://localhost:8000",
+        "http://127.0.0.1:5500",
+        "http://localhost:5500",
+    ],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# =========================
-# Database Setup
-# =========================
+
+
+# =========================================================
+# DATABASE
+# =========================================================
 
 def get_connection():
-    connection = sqlite3.connect("careermate.db")
+
+    connection = sqlite3.connect(
+        "careermate.db"
+    )
+
     connection.row_factory = sqlite3.Row
+
     return connection
 
+
+# =========================================================
+# CREATE DATABASE TABLES
+# =========================================================
 
 connection = get_connection()
 cursor = connection.cursor()
 
-# Students Table
+
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS students (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,7 +93,7 @@ CREATE TABLE IF NOT EXISTS students (
 )
 """)
 
-# Assessments Table
+
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS assessments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,15 +106,17 @@ CREATE TABLE IF NOT EXISTS assessments (
 )
 """)
 
+
 connection.commit()
 connection.close()
 
 
-# =========================
-# Student Model
-# =========================
+# =========================================================
+# PYDANTIC MODELS
+# =========================================================
 
 class StudentProfile(BaseModel):
+
     name: str
     university: str
     major: str
@@ -80,11 +124,8 @@ class StudentProfile(BaseModel):
     skills: list[str]
 
 
-# =========================
-# Career Assessment Model
-# =========================
-
 class CareerAssessment(BaseModel):
+
     student_id: int
     interests: list[str]
     favorite_subjects: list[str]
@@ -92,39 +133,59 @@ class CareerAssessment(BaseModel):
     experience_level: str
 
 
-# =========================
-# Home
-# =========================
+class CareerRecommendationRequest(BaseModel):
+
+    student_id: int
+
+
+class CareerAssistantRequest(BaseModel):
+
+    student_id: int
+    question: str
+
+
+# =========================================================
+# HOME
+# =========================================================
 
 @app.get("/")
 def home():
+
     return {
-        "message": "CareerMate AI is running!"
+        "message": "CareerMate AI is running with OpenRouter!"
     }
 
 
-# =========================
-# Create Student
-# =========================
+# =========================================================
+# CREATE STUDENT
+# =========================================================
 
 @app.post("/students")
-def create_student(student: StudentProfile):
+def create_student(
+    student: StudentProfile
+):
 
     connection = get_connection()
     cursor = connection.cursor()
 
-    skills_text = ", ".join(student.skills)
+    skills_text = ", ".join(
+        student.skills
+    )
 
-    cursor.execute("""
-    INSERT INTO students (name, university, major, year, skills)
-    VALUES (?, ?, ?, ?, ?)
-    """, (
-        student.name,
-        student.university,
-        student.major,
-        student.year,
-        skills_text
-    ))
+    cursor.execute(
+        """
+        INSERT INTO students
+        (name, university, major, year, skills)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            student.name,
+            student.university,
+            student.major,
+            student.year,
+            skills_text,
+        ),
+    )
 
     connection.commit()
 
@@ -134,20 +195,22 @@ def create_student(student: StudentProfile):
 
     return {
         "message": "Student profile created successfully",
+
         "student_id": student_id,
+
         "student": {
             "name": student.name,
             "university": student.university,
             "major": student.major,
             "year": student.year,
-            "skills": student.skills
-        }
+            "skills": student.skills,
+        },
     }
 
 
-# =========================
-# Get All Students
-# =========================
+# =========================================================
+# GET ALL STUDENTS
+# =========================================================
 
 @app.get("/students")
 def get_students():
@@ -155,29 +218,41 @@ def get_students():
     connection = get_connection()
     cursor = connection.cursor()
 
-    cursor.execute("SELECT * FROM students")
+    cursor.execute(
+        "SELECT * FROM students"
+    )
+
     students = cursor.fetchall()
 
     connection.close()
 
     return {
-        "students": [dict(student) for student in students]
+        "students": [
+            dict(student)
+            for student in students
+        ]
     }
 
 
-# =========================
-# Get Student By ID
-# =========================
+# =========================================================
+# GET STUDENT
+# =========================================================
 
 @app.get("/students/{student_id}")
-def get_student(student_id: int):
+def get_student(
+    student_id: int
+):
 
     connection = get_connection()
     cursor = connection.cursor()
 
     cursor.execute(
-        "SELECT * FROM students WHERE id = ?",
-        (student_id,)
+        """
+        SELECT *
+        FROM students
+        WHERE id = ?
+        """,
+        (student_id,),
     )
 
     student = cursor.fetchone()
@@ -185,6 +260,7 @@ def get_student(student_id: int):
     connection.close()
 
     if student is None:
+
         raise HTTPException(
             status_code=404,
             detail="Student not found"
@@ -195,25 +271,31 @@ def get_student(student_id: int):
     }
 
 
-# =========================
-# Create Career Assessment
-# =========================
+# =========================================================
+# CREATE ASSESSMENT
+# =========================================================
 
 @app.post("/assessment")
-def create_assessment(assessment: CareerAssessment):
+def create_assessment(
+    assessment: CareerAssessment
+):
 
     connection = get_connection()
     cursor = connection.cursor()
 
-    # Check if student exists
     cursor.execute(
-        "SELECT id FROM students WHERE id = ?",
-        (assessment.student_id,)
+        """
+        SELECT id
+        FROM students
+        WHERE id = ?
+        """,
+        (assessment.student_id,),
     )
 
     student = cursor.fetchone()
 
     if student is None:
+
         connection.close()
 
         raise HTTPException(
@@ -221,25 +303,34 @@ def create_assessment(assessment: CareerAssessment):
             detail="Student not found"
         )
 
-    interests_text = ", ".join(assessment.interests)
-    subjects_text = ", ".join(assessment.favorite_subjects)
-
-    cursor.execute("""
-    INSERT INTO assessments (
-        student_id,
-        interests,
-        favorite_subjects,
-        work_style,
-        experience_level
+    interests_text = ", ".join(
+        assessment.interests
     )
-    VALUES (?, ?, ?, ?, ?)
-    """, (
-        assessment.student_id,
-        interests_text,
-        subjects_text,
-        assessment.work_style,
-        assessment.experience_level
-    ))
+
+    subjects_text = ", ".join(
+        assessment.favorite_subjects
+    )
+
+    cursor.execute(
+        """
+        INSERT INTO assessments
+        (
+            student_id,
+            interests,
+            favorite_subjects,
+            work_style,
+            experience_level
+        )
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            assessment.student_id,
+            interests_text,
+            subjects_text,
+            assessment.work_style,
+            assessment.experience_level,
+        ),
+    )
 
     connection.commit()
 
@@ -248,21 +339,36 @@ def create_assessment(assessment: CareerAssessment):
     connection.close()
 
     return {
-        "message": "Career assessment created successfully",
-        "assessment_id": assessment_id,
+
+        "message":
+            "Career assessment created successfully",
+
+        "assessment_id":
+            assessment_id,
+
         "assessment": {
-            "student_id": assessment.student_id,
-            "interests": assessment.interests,
-            "favorite_subjects": assessment.favorite_subjects,
-            "work_style": assessment.work_style,
-            "experience_level": assessment.experience_level
-        }
+
+            "student_id":
+                assessment.student_id,
+
+            "interests":
+                assessment.interests,
+
+            "favorite_subjects":
+                assessment.favorite_subjects,
+
+            "work_style":
+                assessment.work_style,
+
+            "experience_level":
+                assessment.experience_level,
+        },
     }
 
 
-# =========================
-# Get All Assessments
-# =========================
+# =========================================================
+# GET ALL ASSESSMENTS
+# =========================================================
 
 @app.get("/assessments")
 def get_assessments():
@@ -270,418 +376,1155 @@ def get_assessments():
     connection = get_connection()
     cursor = connection.cursor()
 
-    cursor.execute("SELECT * FROM assessments")
+    cursor.execute(
+        "SELECT * FROM assessments"
+    )
+
     assessments = cursor.fetchall()
 
     connection.close()
 
     return {
-        "assessments": [dict(assessment) for assessment in assessments]
+        "assessments": [
+            dict(assessment)
+            for assessment in assessments
+        ]
     }
 
 
-# =========================
-# Get Assessment By Student ID
-# =========================
+# =========================================================
+# GET STUDENT ASSESSMENT
+# =========================================================
 
-@app.get("/students/{student_id}/assessment")
-def get_student_assessment(student_id: int):
+@app.get(
+    "/students/{student_id}/assessment"
+)
+def get_student_assessment(
+    student_id: int
+):
 
     connection = get_connection()
     cursor = connection.cursor()
 
-    cursor.execute("""
-    SELECT *
-    FROM assessments
-    WHERE student_id = ?
-    ORDER BY id DESC
-    LIMIT 1
-    """, (student_id,))
+    cursor.execute(
+        """
+        SELECT *
+        FROM assessments
+        WHERE student_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (student_id,),
+    )
 
     assessment = cursor.fetchone()
 
     connection.close()
 
     if assessment is None:
+
         raise HTTPException(
             status_code=404,
             detail="Assessment not found for this student"
         )
 
     return {
-        "assessment": dict(assessment)
+        "assessment":
+            dict(assessment)
     }
-class CareerRecommendationRequest(BaseModel):
-    student_id: int
-class CareerAssistantRequest(BaseModel):
-    student_id: int
-    question: str
-# =========================
-# Career Recommendation
-# =========================
+
+
+# =========================================================
+# CAREER RECOMMENDATION
+# =========================================================
+
 @app.post("/recommend")
-def recommend_career(request: CareerRecommendationRequest):
+def recommend_career(
+    request: CareerRecommendationRequest
+):
 
     connection = get_connection()
     cursor = connection.cursor()
 
+    # -----------------------------------------------------
     # Get student
+    # -----------------------------------------------------
+
     cursor.execute(
-        "SELECT * FROM students WHERE id = ?",
-        (request.student_id,)
+        """
+        SELECT *
+        FROM students
+        WHERE id = ?
+        """,
+        (request.student_id,),
     )
 
     student = cursor.fetchone()
 
     if student is None:
+
         connection.close()
+
         raise HTTPException(
             status_code=404,
             detail="Student not found"
         )
 
+    # -----------------------------------------------------
     # Get latest assessment
-    cursor.execute("""
-    SELECT *
-    FROM assessments
-    WHERE student_id = ?
-    ORDER BY id DESC
-    LIMIT 1
-    """, (request.student_id,))
+    # -----------------------------------------------------
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM assessments
+        WHERE student_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (request.student_id,),
+    )
 
     assessment = cursor.fetchone()
 
     connection.close()
 
     if assessment is None:
+
         raise HTTPException(
             status_code=404,
             detail="Assessment not found for this student"
         )
 
-    # Convert database data to lists
+    # -----------------------------------------------------
+    # Convert database data
+    # -----------------------------------------------------
+
     skills = [
         skill.strip()
         for skill in student["skills"].split(",")
+        if skill.strip()
     ]
 
     interests = [
         interest.strip()
-        for interest in assessment["interests"].split(",")
+        for interest
+        in assessment["interests"].split(",")
+        if interest.strip()
     ]
 
     favorite_subjects = [
         subject.strip()
-        for subject in assessment["favorite_subjects"].split(",")
+        for subject
+        in assessment["favorite_subjects"].split(",")
+        if subject.strip()
     ]
-       # Use AI model
-    print("SKILLS:", skills)
-    print("INTERESTS:", interests)
-    print("SUBJECTS:", favorite_subjects)
-    print("WORK STYLE:", assessment["work_style"])
-    print("EXPERIENCE LEVEL:", assessment["experience_level"])
+
+    # -----------------------------------------------------
+    # Run CareerMate Career Engine
+    # -----------------------------------------------------
 
     result = ai_recommend_career(
+
         skills=skills,
+
         interests=interests,
+
         favorite_subjects=favorite_subjects,
-        work_style=assessment["work_style"],
-        experience_level=assessment["experience_level"]
+
+        work_style=
+            assessment["work_style"],
+
+        experience_level=
+            assessment["experience_level"],
     )
 
     return {
-        "student_id": request.student_id,
-        "recommended_career": result["career"],
-        "match_score": result["score"],
-        "reason": result["reason"],
-        "skills_to_learn": result["skills_to_learn"],
-        "roadmap": result["roadmap"],
-        "message": "AI career recommendation generated successfully"
-    }
-# =========================
-# AI Career Assistant
-# =========================
-@app.post("/career-assistant")
-def career_assistant(request: CareerAssistantRequest):
 
-    # Get the student's career recommendation
+        "student_id":
+            request.student_id,
+
+        "recommended_career":
+            result["career"],
+
+        "match_score":
+            result["score"],
+
+        "reason":
+            result["reason"],
+
+        "current_skills":
+            result["current_skills"],
+
+        "skill_gaps":
+            result["skill_gaps"],
+
+        "skills_to_learn":
+            result["skills_to_learn"],
+
+        "optional_skills":
+            result["optional_skills"],
+
+        "roadmap":
+            result["roadmap"],
+
+        "top_recommendations":
+            result["top_recommendations"],
+
+        "message":
+            "Career recommendation generated successfully",
+    }
+
+
+# =========================================================
+# CAREER ASSISTANT
+# =========================================================
+
+@app.post("/career-assistant")
+def career_assistant(
+    request: CareerAssistantRequest
+):
+
+    # -----------------------------------------------------
+    # Get recommendation
+    # -----------------------------------------------------
+
     recommendation = recommend_career(
         CareerRecommendationRequest(
             student_id=request.student_id
         )
     )
 
-    career = recommendation["recommended_career"]
-    score = recommendation["match_score"]
-    skills = recommendation["skills_to_learn"]
-    roadmap = recommendation["roadmap"]
-    reason = recommendation["reason"]
+    career = recommendation[
+        "recommended_career"
+    ]
 
-    # Prepare student information
-    conn = get_connection()
-    cursor = conn.cursor()
+    score = recommendation[
+        "match_score"
+    ]
+
+    current_skills = recommendation.get(
+        "current_skills",
+        []
+    )
+
+    skill_gaps = recommendation.get(
+        "skill_gaps",
+        []
+    )
+
+    optional_skills = recommendation.get(
+        "optional_skills",
+        []
+    )
+
+    roadmap = recommendation[
+        "roadmap"
+    ]
+
+    reason = recommendation[
+        "reason"
+    ]
+
+    # -----------------------------------------------------
+    # Get student information
+    # -----------------------------------------------------
+
+    connection = get_connection()
+    cursor = connection.cursor()
 
     cursor.execute(
         """
-        SELECT name, university, major, year, skills
+        SELECT
+            name,
+            university,
+            major,
+            year,
+            skills
         FROM students
         WHERE id = ?
         """,
-        (request.student_id,)
+        (request.student_id,),
     )
 
     student = cursor.fetchone()
 
+    # -----------------------------------------------------
+    # Get assessment
+    # -----------------------------------------------------
+
     cursor.execute(
         """
-        SELECT interests, favorite_subjects, work_style, experience_level
+        SELECT
+            interests,
+            favorite_subjects,
+            work_style,
+            experience_level
         FROM assessments
         WHERE student_id = ?
         ORDER BY id DESC
         LIMIT 1
         """,
-        (request.student_id,)
+        (request.student_id,),
     )
 
     assessment = cursor.fetchone()
 
-    conn.close()
+    connection.close()
 
-    # Check if student exists
     if not student:
+
         raise HTTPException(
             status_code=404,
             detail="Student not found"
         )
 
-    name, university, major, year, student_skills = student
+    # -----------------------------------------------------
+    # Student data
+    # -----------------------------------------------------
 
-    # Assessment information
+    name = student["name"]
+    university = student["university"]
+    major = student["major"]
+    year = student["year"]
+    student_skills = student["skills"]
+
     if assessment:
-        interests, favorite_subjects, work_style, experience_level = assessment
+
+        interests = assessment[
+            "interests"
+        ]
+
+        favorite_subjects = assessment[
+            "favorite_subjects"
+        ]
+
+        work_style = assessment[
+            "work_style"
+        ]
+
+        experience_level = assessment[
+            "experience_level"
+        ]
+
     else:
+
         interests = "Not provided"
         favorite_subjects = "Not provided"
         work_style = "Not provided"
         experience_level = "Not provided"
 
-       # System instructions for CareerMate AI
+    # -----------------------------------------------------
+    # System Prompt
+    # -----------------------------------------------------
+
     system_prompt = """
-You are CareerMate AI, a simple and friendly career assistant.
+You are CareerMate AI.
 
-Answer the student's question clearly and in an organized format.
+You are a simple, friendly and practical
+career assistant for university students.
 
-IMPORTANT FORMAT:
-- Always use numbered sections.
-- Each section must have a bold title.
-- Under each title, use short bullet points starting with "-".
-- Do NOT write long paragraphs.
-- Do NOT use large headings.
-- Keep each bullet short and simple.
-- Use 5 to 8 numbered sections when possible.
-- If the question is about a roadmap, use the same numbered format.
-- If the question needs fewer sections, use fewer sections.
-- Use Markdown formatting.
-- Use **bold** for section titles.
-- If the student asks in Arabic, answer in Egyptian Arabic.
-- Keep answers beginner-friendly and practical.
-- Personalize the answer using the student's profile when relevant.
+Answer the student's question clearly.
 
-Example format:
+IMPORTANT RULES:
 
-1. **Programming Basics**
-   - Variables
-   - Conditions
-   - Loops
-   - OOP
+1. Always use numbered sections.
 
-2. **JavaScript**
-   - JavaScript basics
-   - ES6
-   - Async/Await
+2. Each section must have a bold title.
 
-3. **Node.js**
-   - Building a Backend
-   - Working with APIs
+3. Under each title use short bullet points
+   starting with "-".
 
-4. **Express.js**
-   - Routes
-   - Middleware
-   - REST APIs
+4. Do not write long paragraphs.
 
-5. **Databases**
-   - SQL
-   - PostgreSQL
+5. Keep the answer beginner-friendly.
 
-6. **Authentication**
-   - Login
-   - Register
-   - Authorization
+6. If the student asks in Arabic,
+   answer in Egyptian Arabic.
 
-7. **Projects**
-   - To-Do API
-   - Blog API
-   - User Authentication System
+7. Stay focused on the student's
+   recommended career.
+
+8. Do not invent skills that are not
+   relevant to the recommended career.
+
+9. If the student asks what to learn,
+   prioritize the Skill Gaps first.
+
+10. Give practical advice and examples.
 """
-    # Student profile
+
+    # -----------------------------------------------------
+    # Student Information
+    # -----------------------------------------------------
+
     student_info = f"""
-Student Name: {name}
-University: {university}
-Major: {major}
-University Year: {year}
-Current Skills: {student_skills}
 
-Interests: {interests}
-Favorite Subjects: {favorite_subjects}
-Work Style: {work_style}
-Experience Level: {experience_level}
+Student Name:
+{name}
 
-Recommended Career: {career}
-Match Score: {score}%
-Reason: {reason}
+University:
+{university}
 
-Skills Recommended to Learn:
-{", ".join(skills)}
+Major:
+{major}
 
-Recommended Roadmap:
-{" → ".join(roadmap)}
+University Year:
+{year}
+
+Current Skills:
+{", ".join(current_skills)}
+
+Original CV Skills:
+{student_skills}
+
+Interests:
+{interests}
+
+Favorite Subjects:
+{favorite_subjects}
+
+Work Style:
+{work_style}
+
+Experience Level:
+{experience_level}
+
+Recommended Career:
+{career}
+
+Match Score:
+{score}%
+
+Why This Career:
+{reason}
+
+Skill Gaps:
+{", ".join(skill_gaps)}
+
+Optional Future Skills:
+{", ".join(optional_skills)}
+
+Roadmap:
+{" -> ".join(roadmap)}
 """
 
-    # User question
-    user_prompt = f"""
+    # -----------------------------------------------------
+    # Ask Gemini
+    # -----------------------------------------------------
+
+    try:
+
+        response = client.chat.completions.create(
+
+            model="google/gemini-2.5-flash",
+
+            messages=[
+
+                {
+                    "role": "system",
+                    "content": system_prompt
+                },
+
+                {
+                    "role": "user",
+                    "content":
+                        f"""
 Student Profile:
+
 {student_info}
 
 Student Question:
+
 {request.question}
-
-Answer the student's question directly.
-
-Use the student profile when it is relevant.
 """
+                }
+            ],
 
-    # Send question to OpenAI
-    try:
-        response = client.responses.create(
-            model="gpt-5.6-luna",
-            instructions=system_prompt,
-            input=user_prompt
+            max_tokens=1000,
         )
 
-        answer = response.output_text
+        answer = (
+            response
+            .choices[0]
+            .message
+            .content
+        )
 
     except Exception as e:
-        print("AI ASSISTANT ERROR:", repr(e))
 
         raise HTTPException(
             status_code=500,
             detail=f"AI Assistant Error: {str(e)}"
         )
 
-    # Return response to frontend
     return {
-        "student_id": request.student_id,
-        "question": request.question,
-        "career": career,
-        "answer": answer
+
+        "student_id":
+            request.student_id,
+
+        "question":
+            request.question,
+
+        "career":
+            career,
+
+        "answer":
+            answer,
     }
 
-app.mount(
-    "/frontend",
-    StaticFiles(directory="frontend", html=True),
-    name="frontend"
-)
-# =========================
-# CV ANALYSIS
-# =========================
+
+# =========================================================
+# CV TEXT EXTRACTION
+# =========================================================
+
+def extract_cv_text(
+    content: bytes,
+    file_extension: str
+):
+
+    cv_text = ""
+
+    # -----------------------------------------------------
+    # PDF
+    # -----------------------------------------------------
+
+    if file_extension == ".pdf":
+
+        pdf_file = io.BytesIO(
+            content
+        )
+
+        reader = PdfReader(
+            pdf_file
+        )
+
+        for page in reader.pages:
+
+            extracted = page.extract_text()
+
+            if extracted:
+
+                cv_text += (
+                    extracted + "\n"
+                )
+
+    # -----------------------------------------------------
+    # DOCX
+    # -----------------------------------------------------
+
+    elif file_extension == ".docx":
+
+        doc_file = io.BytesIO(
+            content
+        )
+
+        document = Document(
+            doc_file
+        )
+
+        for paragraph in document.paragraphs:
+
+            if paragraph.text.strip():
+
+                cv_text += (
+                    paragraph.text + "\n"
+                )
+
+    # -----------------------------------------------------
+    # TXT
+    # -----------------------------------------------------
+
+    elif file_extension == ".txt":
+
+        cv_text = content.decode(
+            "utf-8",
+            errors="ignore"
+        )
+
+    # -----------------------------------------------------
+    # Old DOC
+    # -----------------------------------------------------
+
+    elif file_extension == ".doc":
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Old .doc files are not supported directly. "
+                "Please save the CV as .docx or PDF and upload it again."
+            )
+        )
+
+    return cv_text.strip()
+
+
+# =========================================================
+# AI CV SKILL EXTRACTION
+# =========================================================
+
+def extract_cv_profile(
+    cv_text: str
+):
+
+    prompt = f"""
+You are a CV information extraction system.
+
+Analyze the CV below.
+
+Your job is ONLY to extract information
+that is explicitly present in the CV.
+
+Do NOT recommend a career.
+
+Do NOT calculate a score.
+
+Do NOT invent skills.
+
+Return ONLY valid JSON.
+
+Use this exact structure:
+
+{{
+    "name": "",
+    "university": "",
+    "major": "",
+    "year": 1,
+    "skills": [],
+    "interests": [],
+    "projects": [],
+    "experience": [],
+    "experience_level": ""
+}}
+
+Rules:
+
+- "skills" must contain only skills
+  explicitly mentioned in the CV.
+
+- "interests" must contain only interests
+  explicitly mentioned.
+
+- "projects" must contain project names
+  or short project descriptions.
+
+- "experience" must contain actual
+  work or internship experience.
+
+- "experience_level" can be:
+  "Beginner",
+  "Intermediate",
+  "Advanced",
+  or "Not specified".
+
+- If something is missing,
+  use an empty string or empty list.
+
+CV:
+
+{cv_text[:10000]}
+"""
+
+    try:
+
+        response = client.chat.completions.create(
+
+            model="google/gemini-2.5-flash",
+
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+
+            temperature=0.1,
+
+            max_tokens=1500,
+        )
+
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"CV AI extraction error: {str(e)}"
+        )
+
+    if (
+        not response.choices
+        or not response.choices[0].message.content
+    ):
+
+        raise HTTPException(
+            status_code=500,
+            detail="AI returned an empty CV analysis."
+        )
+
+    raw_response = (
+        response
+        .choices[0]
+        .message
+        .content
+        .strip()
+    )
+
+    # -----------------------------------------------------
+    # Remove markdown JSON fences if Gemini adds them
+    # -----------------------------------------------------
+
+    if raw_response.startswith("```"):
+
+        raw_response = (
+            raw_response
+            .replace("```json", "")
+            .replace("```", "")
+            .strip()
+        )
+
+    # -----------------------------------------------------
+    # Parse JSON
+    # -----------------------------------------------------
+
+    try:
+
+        profile = json.loads(
+            raw_response
+        )
+
+    except json.JSONDecodeError:
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "AI returned invalid CV data. "
+                "Please try uploading the CV again."
+            )
+        )
+
+    # -----------------------------------------------------
+    # Validate structure
+    # -----------------------------------------------------
+
+    if not isinstance(profile, dict):
+
+        raise HTTPException(
+            status_code=500,
+            detail="Invalid CV analysis format."
+        )
+
+    profile.setdefault(
+        "name",
+        ""
+    )
+
+    profile.setdefault(
+        "university",
+        ""
+    )
+
+    profile.setdefault(
+        "major",
+        ""
+    )
+
+    profile.setdefault(
+        "year",
+        1
+    )
+
+    profile.setdefault(
+        "skills",
+        []
+    )
+
+    profile.setdefault(
+        "interests",
+        []
+    )
+
+    profile.setdefault(
+        "projects",
+        []
+    )
+
+    profile.setdefault(
+        "experience",
+        []
+    )
+
+    profile.setdefault(
+        "experience_level",
+        "Not specified"
+    )
+
+    # Make sure skills are strings
+
+    profile["skills"] = [
+        str(skill).strip()
+        for skill in profile["skills"]
+        if str(skill).strip()
+    ]
+
+    profile["interests"] = [
+        str(interest).strip()
+        for interest in profile["interests"]
+        if str(interest).strip()
+    ]
+
+    return profile
+
+
+# =========================================================
+# SAVE CV STUDENT
+# =========================================================
+
+def save_cv_student(
+    profile
+):
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    name = (
+        profile.get("name")
+        or "CV Candidate"
+    )
+
+    university = (
+        profile.get("university")
+        or "Not specified"
+    )
+
+    major = (
+        profile.get("major")
+        or "Not specified"
+    )
+
+    year = profile.get(
+        "year",
+        1
+    )
+
+    try:
+
+        year = int(year)
+
+    except Exception:
+
+        year = 1
+
+    if year < 1:
+
+        year = 1
+
+    skills = profile.get(
+        "skills",
+        []
+    )
+
+    skills_text = ", ".join(
+        skills
+    )
+
+    cursor.execute(
+        """
+        INSERT INTO students
+        (name, university, major, year, skills)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            name,
+            university,
+            major,
+            year,
+            skills_text,
+        ),
+    )
+
+    connection.commit()
+
+    student_id = cursor.lastrowid
+
+    # -----------------------------------------------------
+    # Create assessment from CV
+    # -----------------------------------------------------
+
+    interests = profile.get(
+        "interests",
+        []
+    )
+
+    cursor.execute(
+        """
+        INSERT INTO assessments
+        (
+            student_id,
+            interests,
+            favorite_subjects,
+            work_style,
+            experience_level
+        )
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            student_id,
+
+            ", ".join(interests),
+
+            "",
+
+            "",
+
+            profile.get(
+                "experience_level",
+                "Not specified"
+            ),
+        ),
+    )
+
+    connection.commit()
+
+    connection.close()
+
+    return student_id
+
+
+# =========================================================
+# ANALYZE CV
+# =========================================================
 
 @app.post("/analyze-cv")
-async def analyze_cv(file: UploadFile = File(...)):
+async def analyze_cv(
+    file: UploadFile = File(...)
+):
 
-    # Allowed file types
-    allowed_extensions = [".pdf", ".doc", ".docx"]
+    # -----------------------------------------------------
+    # Check filename
+    # -----------------------------------------------------
 
-    file_extension = os.path.splitext(file.filename)[1].lower()
+    if not file.filename:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Please upload a file."
+        )
+
+    file_extension = os.path.splitext(
+        file.filename
+    )[1].lower()
+
+    allowed_extensions = [
+        ".pdf",
+        ".docx",
+        ".txt"
+    ]
 
     if file_extension not in allowed_extensions:
 
         raise HTTPException(
             status_code=400,
-            detail="Only PDF, DOC, and DOCX files are allowed."
+            detail=(
+                "Please upload a PDF, DOCX, "
+                "or TXT file."
+            )
         )
+
+    # -----------------------------------------------------
+    # Read file
+    # -----------------------------------------------------
 
     try:
 
-        # Read uploaded file
         content = await file.read()
 
-        cv_info = f"""
-The user uploaded a CV.
+    except Exception:
 
-File name: {file.filename}
-File type: {file_extension}
-File size: {len(content)} bytes
-
-Give a career recommendation based on the available CV information.
-"""
-
-        system_prompt = """
-You are CareerMate AI.
-
-Recommend the most suitable career path for the user.
-
-Return ONLY valid JSON in exactly this format:
-
-{
-    "recommended_career": "Career Name",
-    "match_score": 85,
-    "reason": "Short explanation",
-    "skills_to_learn": [
-        "Skill 1",
-        "Skill 2",
-        "Skill 3"
-    ],
-    "roadmap": [
-        "Step 1",
-        "Step 2",
-        "Step 3",
-        "Step 4"
-    ]
-}
-
-Rules:
-- match_score must be between 0 and 100.
-- Return JSON only.
-- Do not use markdown.
-"""
-
-        response = client.responses.create(
-
-            model="gpt-4.1-mini",
-
-            instructions=system_prompt,
-
-            input=cv_info
-
+        raise HTTPException(
+            status_code=400,
+            detail="Could not read the uploaded file."
         )
 
-        ai_response = response.output_text.strip()
+    # -----------------------------------------------------
+    # Check size
+    # -----------------------------------------------------
 
-        # Clean possible markdown
-        ai_response = ai_response.replace("```json", "")
-        ai_response = ai_response.replace("```", "")
-        ai_response = ai_response.strip()
+    max_size = 10 * 1024 * 1024
 
-        result = json.loads(ai_response)
+    if len(content) > max_size:
 
-        return result
+        raise HTTPException(
+            status_code=400,
+            detail="File size must be less than 10MB."
+        )
 
+    if len(content) == 0:
+
+        raise HTTPException(
+            status_code=400,
+            detail="The uploaded file is empty."
+        )
+
+    # -----------------------------------------------------
+    # Extract CV text
+    # -----------------------------------------------------
+
+    try:
+
+        cv_text = extract_cv_text(
+            content,
+            file_extension
+        )
+
+    except HTTPException:
+
+        raise
 
     except Exception as e:
 
-        print("CV ANALYSIS ERROR:", repr(e))
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Could not extract CV text: {str(e)}"
+            )
+        )
+
+    # -----------------------------------------------------
+    # Empty CV
+    # -----------------------------------------------------
+
+    if not cv_text.strip():
 
         raise HTTPException(
-            status_code=500,
-            detail=str(e)
+            status_code=400,
+            detail=(
+                "Could not extract text from this CV. "
+                "If it is a scanned/image PDF, "
+                "please upload a text-based PDF or DOCX."
+            )
         )
+
+    # -----------------------------------------------------
+    # STEP 1:
+    # Gemini extracts CV information
+    # -----------------------------------------------------
+
+    profile = extract_cv_profile(
+        cv_text
+    )
+
+    extracted_skills = profile.get(
+        "skills",
+        []
+    )
+
+    interests = profile.get(
+        "interests",
+        []
+    )
+
+    # -----------------------------------------------------
+    # STEP 2:
+    # Save student
+    # -----------------------------------------------------
+
+    student_id = save_cv_student(
+        profile
+    )
+
+    # -----------------------------------------------------
+    # STEP 3:
+    # CareerMate deterministic engine
+    # -----------------------------------------------------
+
+    result = ai_recommend_career(
+
+        skills=extracted_skills,
+
+        interests=interests,
+
+        favorite_subjects=[],
+
+        work_style="",
+
+        experience_level=
+            profile.get(
+                "experience_level",
+                ""
+            ),
+    )
+
+    # -----------------------------------------------------
+    # STEP 4:
+    # Return complete analysis
+    # -----------------------------------------------------
+
+    return {
+
+        "student_id":
+            student_id,
+
+        "file_name":
+            file.filename,
+
+        "candidate_name":
+            profile.get(
+                "name",
+                ""
+            ),
+
+        "recommended_career":
+            result["career"],
+
+        "match_score":
+            result["score"],
+
+        "reason":
+            result["reason"],
+
+        "current_skills":
+            result["current_skills"],
+
+        "skill_gaps":
+            result["skill_gaps"],
+
+        "skills_to_learn":
+            result["skills_to_learn"],
+
+        "optional_skills":
+            result["optional_skills"],
+
+        "roadmap":
+            result["roadmap"],
+
+        "top_recommendations":
+            result["top_recommendations"],
+
+        "projects":
+            profile.get(
+                "projects",
+                []
+            ),
+
+        "experience":
+            profile.get(
+                "experience",
+                []
+            ),
+
+        "message":
+            "CV analyzed successfully",
+    }
+
+
+# =========================================================
+# FRONTEND
+# =========================================================
+
+app.mount(
+    "/frontend",
+    StaticFiles(
+        directory="frontend",
+        html=True
+    ),
+    name="frontend"
+)
