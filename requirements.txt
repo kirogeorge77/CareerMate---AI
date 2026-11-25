@@ -30,3 +30,4 @@ tzdata==2026.3
 uvicorn==0.52.4
 python-dotenv
 pypdf
+python-docx
